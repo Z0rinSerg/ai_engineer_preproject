@@ -1,0 +1,18 @@
+[project]
+name = "ai_engineer_preproject"
+version = "0.1.0"
+description = ""
+authors = [{ name = "Z0rinSerg", email = "sr.z0rs@gmail.com" }]
+requires-python = ">=3.12,<4.0"
+dependencies = [
+    "fastmcp>=4.2.1",
+    "ipython>=9.18.1",
+    "jupyterlab>=4.6.6",
+]
+
+[dependency-groups]
+dev = []
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

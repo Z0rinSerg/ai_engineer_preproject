@@ -1,0 +1,16 @@
+{
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "notebook.kernelSources": [
+        {
+            "name": "ai_engineer_preproject (uv)",
+            "path": "${workspaceFolder}/.venv/bin/python"
+        }
+    ],
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/.mypy_cache": true,
+        "**/.pytest_cache": true,
+        "**/.ipynb_checkpoints": true
+    }
+}
