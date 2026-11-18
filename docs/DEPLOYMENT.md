@@ -92,3 +92,9 @@ git push -u origin main
 ```
 В дальнейшем коммитим и пушим из интерфейса VS Code. 
 
+# Собираем среду дальше для урока
+Это установит все библиотеки, необходимые для курса: ~~requests~~ `httpx`, `numpy`, `sentence-transformers`, `faiss-cpu` и `pypdf`.
+```bash
+uv add numpy sentence-transformers faiss-cpu pypdf httpx
+uv sync
+```
