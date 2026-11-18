@@ -70,3 +70,6 @@ mcp_config.json
 # OS
 .DS_Store
 Thumbs.db
+
+# ollama_docs as data
+ollama_docs/
