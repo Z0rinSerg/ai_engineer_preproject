@@ -6,7 +6,7 @@ authors = [{ name = "Z0rinSerg", email = "sr.z0rs@gmail.com" }]
 requires-python = ">=3.12,<4.0"
 dependencies = [
     "faiss-cpu>=1.16.0",
-    "fastmcp>=4.2.1",
+    "fastmcp>=4.2.3",
     "httpx>=0.28.1",
     "ipython>=9.18.1",
     "jupyterlab>=4.6.6",
@@ -17,7 +17,18 @@ dependencies = [
 
 [dependency-groups]
 dev = []
-
+lint = [
+    # Основной линтинг. Версия 3.3+ необходима для поддержки синтаксиса Python 3.12
+    "pylint>=3.3.0,<3.4.0",
+    # Языковой сервер. [all] заменен на конкретные зависимости для стабильности на Py3.12
+    "python-lsp-server>=1.8.5,<1.10.0",
+    # Быстрый линтинг и форматтер кода (альтернатива/в дополнение к Pylint)
+    "ruff>=0.13.0,<0.14.0",
+    # Проверка типов (если вы используете type hints)
+    "mypy>=1.14.0,<1.15.0",  
+    # Утилита для безопасного импорта неиспользуемых модулей (опционально, но полезно) 
+    "isort>=5.13.0,<5.14.0"
+]
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
