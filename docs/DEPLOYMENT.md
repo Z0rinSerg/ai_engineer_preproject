@@ -3,18 +3,18 @@
 ## 1. Создаем \ пересоздаем проект "с нуля"
 Для управления зависмостями в проекте используется инструмент - `uv`, для сконтроля изменений и синхронизации с репозиторием в облаке - `git`.  
 ### Установка uv 
-Самый быстрый и простой способ закачать при помощи curl и одновременно запустить универсальный скрипт.
+Самый быстрый и простой способ закачать при помощи `curl` и одновременно запустить универсальный скрипт.
 
 Для linux: 
 
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh 
 ```
-После установки перезапусть терминал или выполните 
+После установки перезапустите терминал или выполните 
 ```bash
 source ~/.bashrc
 ```
-чтобы команда uv стала доступна.
+чтобы команда `uv` стала доступна.
 
 Для Windows:
 
@@ -24,7 +24,8 @@ powershell -ExecutionPolicy Bypass -c "irm https://releases.astral.sh/github/uv/
 Этот же скрипт, при необходимости - обновит инструмент `uv`. При запуске скрипт проверяет уже установленную версию `uv`.   
 
 Если хочется безопасности, контрольных сумм - добро пожаловать [скачивать релизы с github](https://github.com/astral-sh/uv/releases) распаковывать архивы и проверять посредством `SHA256SUM`.
-Может так случится, что в системе не установлена команда curl. Если это так, то можно установить его с помощью команд:
+
+Может так случится, что в системе не установлена команда `curl`. Если это так, то можно установить его с помощью команд:
 1. Обновление списка пакетов.
 ```bash
 sudo apt update
@@ -66,14 +67,59 @@ uv init ai_engineer_preproject --python 3.12 && cd ai_engineer_preproject
 ```bash
 uv init
 ```
-
 ## Создание виртуального окружения и активацие его
 
 ```bash
 uv sync
 source .venv/bin/activate
 ```
-В принципе, при управлении проектом uv - не обязательно активировать виртуальное окружение, uv будет это делать автоматически, во всех сдучаях, когда это требуется. Но при использовании VS Code, лучше, чтобы оно было запущено в среде активированного виртуального окружения.
+В принципе, при управлении проектом `uv` - не обязательно активировать виртуальное окружение, `uv` будет это делать автоматически, во всех случаях, когда это требуется. Но при использовании `VS Code`, лучше, чтобы оно было запущено в среде активированного виртуального окружения.
+
+
+## Добавим еще нужных папок в структуры проекта:
+
+```bash
+mkdir -p notebooks src/ai_engineer_preproject scripts
+```
+Тоже самое можно делать в интерфейсе Vs Code
+
+
+Теперь добавим в pyproject.toml зависимости, необходимые для работы с Jupyter и MCP-серверами, а также настроим VSCode. 
+
+```bash
+uv add jupyterlab ipython fastmcp
+```
+Синхронизируем зависимости (действие, которое делается всегда после изменения настроек зависимостей)
+
+```bash
+uv sync
+```
+## Настроим VSCode.
+Чтобы ноутбуки и код использовали созданное `uv`-окружение:
+```bash
+mkdir -p .vscode && cat > .vscode/settings.json << 'EOF'
+{
+    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "notebook.kernelSources": [
+        {
+            "name": "ai_engineer_preproject (uv)",
+            "path": "${workspaceFolder}/.venv/bin/python"
+        }
+    ],
+    "files.exclude": {
+        "**/__pycache__": true,
+        "**/.mypy_cache": true,
+        "**/.pytest_cache": true,
+        "**/.ipynb_checkpoints": true
+    }
+}
+EOF
+```
+Сделаем синхронизацию зависимостей:
+```bash
+uv sync
+```
 
 ## Синхронизация с GitHub
 
@@ -140,7 +186,7 @@ git push
 ```
 Это просто отправит все локальные коммиты в облачный репозиторий. 
 
-# 2. Воссоздаем на дргой платформа или после краша
+# 2. Воссоздаем на другой платформа или после краша
 
 ### Первичная синхронизация в локальной новой среде 
 
@@ -153,7 +199,9 @@ git push
 
 ```bash
 git clone https://github.com/Z0rinSerg/ai_engineer_preproject
-
+```
+Перейти в папку проекта: 
+```bash
 cd ai_engineer_preproject 
 ```
 Затем необходимо синхронизировать среду python c зависимостями, т.к. они не синхронизируются с облачным репозиторием и соответсвтвенно не закачиваются при клонировании. Необходимо выполнить команду: 
@@ -162,13 +210,23 @@ uv sync
 ```
 Это закачает необходимую версию `python` и необходимые зависимости с требуемыми версиями, в соответсвии с `pyproject.toml` и `uv.lock` 
 
+Проверить настройи git на синхронизацию с удаленным репозиторием:
+```bash
+git config --list --show-origin
+```
+Настроить на доступ к github по ssh:
+```bash
+git remote add origin git@github.com:Z0rinSerg/ai_engineer_preproject.git
+```
+Также потребуется генерация (или копирование с платформы, где они уже работают - но это не безопасно!) ключей и регистрация их на github. 
+
 ### Синхронизация локальной системы с облачной 
 При ежедневной работе и перемещении между платформами между локациями необходимо:
 - Для синхронизации облачного репозитория с локальной системой - при завершении работы на одной платформе :
-    - Сохранить все изменения в файлах : Vs Code -> Menu File -> Save all
-    - Выбрать конкретные файлы для коммита или все: Vs Code -> Extension Git -> Changes -> `+` 
-    - Сделать коммит Vs Code -> Extension Git -> Commit (заполнить поле message)
-    - Отправить коммит на удаленный репозиторий: Vs Code -> Extension Git -> Push      
+    - Сохранить все изменения в файлах : `Vs Code -> Menu File -> Save all`
+    - Выбрать конкретные файлы для коммита или все: `Vs Code -> Extension Git -> Changes -> ` `+` 
+    - Сделать коммит `Vs Code -> Extension Git -> Commit` (заполнить поле message)
+    - Отправить коммит на удаленный репозиторий: `Vs Code -> Extension Git -> Push`      
 - Для синхронизации локальной системы с облачным репозиторием при старте работы на другой платформе :
     - затянуть изменения на локальную платформу:
     ```bash
@@ -178,79 +236,6 @@ uv sync
     ```bash
     uv sync
     ```
-Проверить настройи git на синхронизацию с удаленным репозиторием:
-```bash
-git config --list --show-origin
-```
-Настроить на доступ к github по ssh:
-```bash
-git remote add origin git@github.com:Z0rinSerg/ai_engineer_preproject.git
-```
-Также потребуется генерация ключей и регистрация их на github. 
-
-
-## Создание виртуального окружения 
-
-
-```bash
-uv init --name ai_engineer_preproject --python 3.12
-```
-Создались необходимые папки и файлы для виртуального окружения, папки для кода, файл `pyproject.toml` для управления проектом  т.д.
-
-добавим еще нужных папок в структуры проекта:
-
-```bash
-mkdir -p notebooks src/ai_engineer_preproject scripts
-```
-
-
-Теперь добавим в pyproject.toml зависимости, необходимые для работы с Jupyter и MCP-серверами, а также настроим VSCode. 
-
-```bash
-uv add jupyterlab ipython fastmcp
-```
-
-Настроим VSCode. Чтобы ноутбуки и код использовали созданное uv-окружение:
-```bash
-mkdir -p .vscode && cat > .vscode/settings.json << 'EOF'
-{
-    "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-    "python.terminal.activateEnvironment": true,
-    "notebook.kernelSources": [
-        {
-            "name": "ai_engineer_preproject (uv)",
-            "path": "${workspaceFolder}/.venv/bin/python"
-        }
-    ],
-    "files.exclude": {
-        "**/__pycache__": true,
-        "**/.mypy_cache": true,
-        "**/.pytest_cache": true,
-        "**/.ipynb_checkpoints": true
-    }
-}
-EOF
-```
-
-установим зависимости:
-```bash
-uv sync
-```
-Теперь зафиксируем это изменение в Git и проверим статус репозитория:
-```bash
-git add pyproject.toml
-git commit -m "fix: migrate uv dev-dependencies to dependency-groups"
-git status
-```
-Репозиторий на github создавался "руками". 
-Настройка доступа по ssh (также потребует создание SSH-ключей и добавление их в настройки репозитория - здесь не приводятся подробно): 
-
-
-Пушим из терминала:
-```bash
-git push -u origin main
-```
-В дальнейшем коммитим и пушим из интерфейса VS Code. 
 
 # Собираем среду дальше для урока
 Это установит все библиотеки, необходимые для курса: ~~requests~~ `httpx`, `numpy`, `sentence-transformers`, `faiss-cpu` и `pypdf`.
