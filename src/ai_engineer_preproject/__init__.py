@@ -43,24 +43,3 @@ def chunk_text(text: str, max_chars: int = 800, min_chars: int = 50) -> list[str
             chunks.append(buf.strip())
 
     return [c for c in chunks if len(c) >= min_chars]
-
-def vector_search(question: str, top_k: int = 3) -> list[dict]:
-    """Возвращает top_k чанков, наиболее близких к запросу по смыслу."""
-    # 1. Считаем эмбеддинг запроса
-    query_emb = embed_model.encode(
-        [question],
-        normalize_embeddings=True,
-    ).astype(np.float32)
-
-    # 2. Ищем ближайших соседей
-    scores, indices = index.search(query_emb, top_k)
-
-    # 3. Собираем результат с метаданными
-    results = []
-    for score, idx in zip(scores[0], indices[0]):
-        results.append({
-            "text": chunks[idx]["text"],
-            "source": chunks[idx]["source"],
-            "score": float(score),
-        })
-    return results

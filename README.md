@@ -15,17 +15,39 @@
 
 
 
-## Быстрый старт
+## Быстрый старт 
+
+1. Установка `uv` (если он еще не установлен).
+Для Linux:
+
+```bash 
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+для [Windows](docs/DEPLOYMENT.md#установка-uv)
+
+2. Установка `git` (если он еще не установлен).
+Для Linux:
+```bash
+sudo apt update
+sudo apt install git
+```
+проверка установки:
+```bash
+git --version
+```
+
+
 
 ### Клонирование папки репозитория
 ```bash
- git clone https://github.com/Z0rinSerg/ai_engineer_preproject
+git clone https://github.com/Z0rinSerg/ai_engineer_preproject
+
+cd ai_engineer_preproject
 ```
-### Установка зависимостей
+### Установка (синхронизация) зависимостей, создание окружения
 ```bash
 uv sync
 ```
-
 ### Активация виртуального окружения
 ```bash
 source .venv/bin/linux  # для Linux/macOS
