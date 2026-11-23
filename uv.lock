@@ -25,6 +25,9 @@ dependencies = [
 ]
 
 [package.dev-dependencies]
+dev = [
+    { name = "ruff" },
+]
 lint = [
     { name = "isort" },
     { name = "mypy" },
@@ -48,7 +51,7 @@ requires-dist = [
 ]
 
 [package.metadata.requires-dev]
-dev = []
+dev = [{ name = "ruff", specifier = ">=0.13.3" }]
 lint = [
     { name = "isort", specifier = ">=5.13.0,<5.14.0" },
     { name = "mypy", specifier = ">=1.14.0,<1.15.0" },

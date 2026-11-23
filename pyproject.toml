@@ -18,7 +18,9 @@ dependencies = [
 ]
 
 [dependency-groups]
-dev = []
+dev = [
+    "ruff>=0.13.3",
+]
 lint = [
     # Основной линтинг. Версия 3.3+ необходима для поддержки синтаксиса Python 3.12
     "pylint>=3.3.0,<3.4.0",
