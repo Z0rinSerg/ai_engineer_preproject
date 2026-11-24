@@ -1,7 +1,7 @@
 [project]
 name = "ai_engineer_preproject"
 version = "0.1.0"
-description = ""
+description = "Проект для выполнения заданий в курсе ИИ-инженер (беспл. часть)"
 authors = [{ name = "Z0rinSerg", email = "sr.z0rs@gmail.com" }]
 requires-python = ">=3.12,<4.0"
 dependencies = [
