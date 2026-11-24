@@ -73,3 +73,8 @@ Thumbs.db
 
 # ollama_docs as data
 ollama_docs/
+
+# local model copy
+notebooks/local_embed_model/
+notebooks/chunk_embeddings.npy
+notebooks/MY_index.faiss
