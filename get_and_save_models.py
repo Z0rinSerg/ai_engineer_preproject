@@ -4,7 +4,6 @@ import getpass # Модуль для скрытого ввода (правиль
 from urllib.parse import quote # Функция для экранирования URL (правильный импорт)
 from huggingface_hub import snapshot_download
 from sentence_transformers import SentenceTransformer
-import faiss
 print("Импорт ОК.")
 
 password = getpass.getpass(prompt='Введите пароль для прокси-сервера: ')
