@@ -78,3 +78,4 @@ ollama_docs/
 notebooks/local_embed_model/
 notebooks/chunk_embeddings.npy
 notebooks/MY_index.faiss
+saved_models
