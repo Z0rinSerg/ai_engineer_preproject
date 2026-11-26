@@ -621,3 +621,267 @@ max_chars=3000 -> чанков: ~20-40,   средняя длина: ~1200 - 200
 Самая популярная опенсорс-библиотека — FAISS (Facebook AI Similarity Search), написанная на C++. Она ищет в миллионных коллекциях за миллисекунды. 
 Для нашего объёма данных подойдёт простейший тип индекса — IndexFlatIP. Он сравнивает запрос со всеми векторами по очереди, без приближений — и для нескольких сотен чанков этого достаточно.
 ``Векторный индекс — структура данных, которая хранит эмбеддинги и позволяет быстро находить top-k ближайших к заданному вектору. Примеры: FAISS, Chroma, Qdrant.``
+
+# Считаем эмбеддинги для чанков
+
+Пора переходить к коду. Сейчас понадобятся две библиотеки — они уже должны быть в вашем виртуальном окружении из урока «Кто такой ИИ-инженер и что вас ждёт»:
+```
+sentence-transformers, faiss-cpu
+``` 
+Загрузим модель эмбеддингов и посчитаем векторы для всех чанков. Сами чанки — это переменная `chunks`, которую вы собрали ранее.
+```python
+import numpy as np
+from sentence_transformers import SentenceTransformer
+
+EMBED_MODEL = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+
+print(f"Загружаем модель эмбеддингов: {EMBED_MODEL}")
+embed_model = SentenceTransformer(EMBED_MODEL)
+
+# Берём только тексты чанков (метаданные оставим в chunks как есть)
+texts = [c["text"] for c in chunks]
+
+# Считаем эмбеддинги: на выходе - матрица (N, 384)
+chunk_embeddings = embed_model.encode(
+    texts,
+    normalize_embeddings=True,
+    show_progress_bar=True,
+).astype(np.float32)
+
+print(f"Размер матрицы эмбеддингов: {chunk_embeddings.shape}")
+```
+При первом запуске модель скачается с Hugging Face — весит около 470 МБ. Дальше она будет браться из локального кеша.
+Что должно получиться:
+```
+Загружаем модель эмбеддингов: sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2
+Batches: 100%|██████████| 6/6 [00:18<00:00,  3.05s/it]
+Размер матрицы эмбеддингов: (178, 384)
+```
+
+Параметр `normalize_embeddings=True` приводит каждый вектор к единичной длине. Это нужно, чтобы потом косинусная близость была эквивалентна обычному скалярному произведению — так будет удобнее работать с FAISS.
+
+Параметр `show_progress_bar=True` нарисует прогресс-бар — на 200 чанках расчёт занимает 10–30 секунд на CPU.
+
+В результате получаем матрицу chunk_embeddings размером (N, 384), где N — количество чанков, а каждая строка — эмбеддинг одного чанка.
+
+## Заглянем внутрь
+Из любопытства взгляните на один эмбеддинг:
+```python
+print(f"Первый чанк: {chunks[0]['text'][:80]}...")
+print(f"Его эмбеддинг (первые 10 чисел): {chunk_embeddings[0][:10]}")
+print(f"Длина вектора (норма): {np.linalg.norm(chunk_embeddings[0]):.4f}")
+```
+Увидите примерно следующее:
+```
+Первый чанк: ---
+title: Anthropic compatibility
+---
+
+Ollama provides compatibility with the [...
+Его эмбеддинг (первые 10 чисел): [-0.00067811 -0.0478714  -0.01951333  0.05752335 -0.0530349   0.03265294
+ -0.01078365 -0.04734363  0.01260929  0.0103224 ]
+Длина вектора (норма): 1.0000
+```
+
+Числа сами по себе ничего не говорят — они интерпретируются только в сравнении друг с другом. Норма равна единице, потому что мы запросили нормализацию векторов.
+
+# Строим векторный индекс
+Теперь упакуем эмбеддинги в FAISS-индекс:
+```python
+import faiss
+
+dim = chunk_embeddings.shape[1]  # 384
+index = faiss.IndexFlatIP(dim)
+index.add(chunk_embeddings)
+
+print(f"В индексе {index.ntotal} векторов размерности {dim}")
+```
+Примерно такой вывод мы можем получить:
+```
+В индексе 1500 векторов размерности 384
+```
+Здесь `IndexFlatIP` — это «плоский» индекс с метрикой Inner Product (скалярное произведение). Так как наши векторы нормализованы, скалярное произведение и есть косинусная близость.
+
+Метод index.add() принимает матрицу (N, dim) и добавляет каждую строку как отдельный вектор. После вызова в индексе хранится N векторов, по которым можно искать.
+# Первый поиск
+
+Соберём всё в одну удобную функцию `vector_search()`:
+
+```python
+def vector_search(question: str, top_k: int = 3) -> list[dict]:
+    """Возвращает top_k чанков, наиболее близких к запросу по смыслу."""
+    # 1. Считаем эмбеддинг запроса
+    query_emb = embed_model.encode(
+        [question],
+        normalize_embeddings=True,
+    ).astype(np.float32)
+
+    # 2. Ищем ближайших соседей
+    scores, indices = index.search(query_emb, top_k)
+
+    # 3. Собираем результат с метаданными
+    results = []
+    for score, idx in zip(scores[0], indices[0]):
+        results.append({
+            "text": chunks[idx]["text"],
+            "source": chunks[idx]["source"],
+            "score": float(score),
+        })
+    return results
+```
+    Здесь логика повторяет алгоритм поиска по облаку точек:
+1. Превращаем запрос в вектор той же моделью, что и чанки.
+2. Просим у индекса top-k ближайших.
+3. Для каждого попадания возвращаем сам текст чанка, его источник и оценку близости.
+Проверим:
+
+```python
+question = "Как сменить папку, в которой Ollama хранит модели?"
+results = vector_search(question, top_k=3)
+
+print(f"Запрос: {question}\n")
+for i, r in enumerate(results, 1):
+    print(f"#{i}  [{r['source']}]  score={r['score']:.3f}")
+    print(r["text"][:200], "...\n")
+```
+Вы увидите примерно такой вывод:
+```
+Запрос: Как сменить папку, в которой Ollama хранит модели?
+
+#1  [docs\windows.mdx]  score=0.765
+To change where Ollama stores the downloaded models instead of using your home directory, set the environment variable `OLLAMA_MODELS` in your user account.
+
+1. Start the Settings (Windows 11) or Cont ...
+
+#2  [docs\macos.mdx]  score=0.629
+## Filesystem Requirements
+
+The preferred method of installation is to mount the `ollama.dmg` and drag-and-drop the Ollama application to the system-wide `Applications` folder.  Upon startup, the Olla ...
+
+#3  [docs\faq.mdx]  score=0.620
+Alternatively, you can change the amount of time all models are loaded into memory by setting the `OLLAMA_KEEP_ALIVE` environment variable when starting the Ollama server. The `OLLAMA_KEEP_ALIVE` vari ...
+```
+Обратите внимание на два момента.
+Вопрос задан на русском, документ на английском — а поиск всё равно нашёл нужный фрагмент. Это та самая многоязычность модели эмбеддингов в действии.
+`score` (оценка релевантностипервого результата ощутимо выше, чем у остальных (`0.76` против `0.629` и `0.62`) — модель уверенно выделила нужный фрагмент, остальные два просто на близкую тему. В следующем уроке отправим в LLM все три, и она уже сама решит, на какой опереться.
+
+## Что нужно сделать
+В Jupyter Notebook:
+1. Возьмите свой список chunks, полученный в Уроке 3.
+2. Посчитайте эмбеддинги для всех чанков.
+3. Соберите FAISS-индекс.
+4. Выполните поиск по трём вопросам: "What HTTP method does /api/generate use?", «Как сменить папку, где хранятся модели?», "What is a Modelfile?"
+Для каждого вопроса выведите топ-3 найденных чанков с источниками и значениями `score`.
+Допишите код в местах с комментариями # Ваш код здесь.
+
+Прекод:
+```python
+import numpy as np
+import faiss
+from sentence_transformers import SentenceTransformer
+
+# 1. Загружаем модель эмбеддингов
+embed_model = SentenceTransformer(
+    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+)
+
+# 2. Считаем эмбеддинги для всех чанков
+texts = [c["text"] for c in chunks]
+chunk_embeddings = # Ваш код здесь: embed_model.encode с
+                   # normalize_embeddings=True и .astype(np.float32)
+
+# 3. Строим FAISS-индекс
+dim = chunk_embeddings.shape[1]
+index = # Ваш код здесь: создайте IndexFlatIP и добавьте chunk_embeddings
+
+# 4. Функция поиска
+def vector_search(question: str, top_k: int = 3) -> list[dict]:
+    query_emb = # ваш код здесь
+    scores, indices = index.search(query_emb, top_k)
+    results = []
+    for score, idx in zip(scores[0], indices[0]):
+        results.append({
+            "text": chunks[idx]["text"],
+            "source": chunks[idx]["source"],
+            "score": float(score),
+        })
+    return results
+
+# 5. Проверяем на трёх вопросах
+questions = [
+    "What HTTP method does /api/generate use?",
+    "Как сменить папку, где хранятся модели?",
+    "What is a Modelfile?",
+]
+
+for q in questions:
+    print(f"=== {q} ===")
+    for r in vector_search(q, top_k=3):
+        print(f"  [{r['source']}]  score={r['score']:.3f}")
+        print(f"  {r['text'][:120].strip()}...\n")
+```
+## Подсказка
+
+- Для encode используйте параметры `normalize_embeddings=True` и `show_progress_bar=True`. После вызова приведите результат к `np.float32`: `.astype(np.float32)`.
+- FAISS-индекс создаётся так: `faiss.IndexFlatIP(dim)`, затем в него добавляется матрица: `index.add(chunk_embeddings)`.
+- Эмбеддинг запроса считается тем же `encode`: `embed_model.encode([question], normalize_embeddings=True).astype(np.float32)`.
+
+## Авторское решение
+```python
+import numpy as np
+import faiss
+from sentence_transformers import SentenceTransformer
+
+embed_model = SentenceTransformer(
+    "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+)
+
+texts = [c["text"] for c in chunks]
+chunk_embeddings = embed_model.encode(
+    texts,
+    normalize_embeddings=True,
+    show_progress_bar=True,
+).astype(np.float32)
+
+dim = chunk_embeddings.shape[1]
+index = faiss.IndexFlatIP(dim)
+index.add(chunk_embeddings)
+
+def vector_search(question: str, top_k: int = 3) -> list[dict]:
+    query_emb = embed_model.encode(
+        [question],
+        normalize_embeddings=True,
+    ).astype(np.float32)
+    scores, indices = index.search(query_emb, top_k)
+    results = []
+    for score, idx in zip(scores[0], indices[0]):
+        results.append({
+            "text": chunks[idx]["text"],
+            "source": chunks[idx]["source"],
+            "score": float(score),
+        })
+    return results
+
+questions = [
+    "What HTTP method does /api/generate use?",
+    "Как сменить папку, где хранятся модели?",
+    "What is a Modelfile?",
+]
+
+for q in questions:
+    print(f"=== {q} ===")
+    for r in vector_search(q, top_k=3):
+        print(f"  [{r['source']}]  score={r['score']:.3f}")
+        print(f"  {r['text'][:120].strip()}...\n")
+```
+Что должно получиться: для каждого вопроса в топ-1 окажется чанк из тематически правильного раздела документации (например, по вопросу про папку — из `faq.mdx`, по Modelfile — из `modelfile.mdx`). score у первого результата будет заметно выше, чем у второго и третьего.
+Полезно посмотреть и на «провалы» — случаи, когда топ-1 оказывается не там, где ожидалось. Это нормально: семантический поиск не идеален. Часто ошибки возникают, если в датасете есть чанки на близкие темы — формально по смыслу они тоже подходят.
+
+## Заключение
+
+В этом уроке вы:
+Поняли идею эмбеддинга — представление текста в виде вектора, в котором смысловая близость соответствует геометрической.
+Узнали, как работает поиск ближайших соседей и зачем нужны векторные индексы вроде FAISS.
+Превратили чанки в эмбеддинги и построили работающий семантический поиск по своему датасету.
+В целевом пайплайне `ask_assistant()` теперь готовы две функции из четырёх: `chunk_text()` и `vector_search()`. Осталось научиться формировать промпт и передавать его в LLM. Этим мы и займёмся в следующем уроке.
+
