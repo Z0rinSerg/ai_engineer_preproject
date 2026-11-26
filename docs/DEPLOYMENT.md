@@ -71,8 +71,17 @@ uv init
 
 ```bash
 uv sync
+```
+ Для linux
+
+```bash
 source .venv/bin/activate
 ```
+Для Windows
+```
+ (Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned) ; (& c:\Users\[имя пользователя здесь]\ai_engineer_preproject\.venv\Scripts\Activate.ps1)
+```
+
 В принципе, при управлении проектом `uv` - не обязательно активировать виртуальное окружение, `uv` будет это делать автоматически, во всех случаях, когда это требуется. Но при использовании `VS Code`, лучше, чтобы оно было запущено в среде активированного виртуального окружения.
 
 
